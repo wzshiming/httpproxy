@@ -43,7 +43,10 @@ func proxyConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go io.Copy(targetConn, clientConn)
+	go func() {
+		defer clientConn.Close()
+		io.Copy(targetConn, clientConn)
+	}()
 	go func() {
 		defer targetConn.Close()
 		io.Copy(clientConn, targetConn)
