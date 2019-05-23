@@ -8,8 +8,15 @@ import (
 
 // BasicAuth HTTP Basic authentication for Header Proxy-Authorization
 func BasicAuth(username, password string) func(http.ResponseWriter, *http.Request) bool {
+	return BasicAuthFunc(func(u, p string) bool {
+		return username == u && password == p
+	})
+}
+
+// BasicAuthFunc HTTP Basic authentication for Header Proxy-Authorization
+func BasicAuthFunc(f func(username, password string) bool) func(http.ResponseWriter, *http.Request) bool {
 	return func(w http.ResponseWriter, r *http.Request) bool {
-		if u, p, _ := parseBasicAuth(r.Header.Get("Proxy-Authorization")); u == username && p == password {
+		if u, p, _ := parseBasicAuth(r.Header.Get("Proxy-Authorization")); f(u, p) {
 			return true
 		}
 		http.Error(w, "Unauthorized", 407)
