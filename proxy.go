@@ -68,12 +68,12 @@ func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
 
 // ProxyHandler proxy handler
 type ProxyHandler struct {
-	ProxyDial func(context.Context, string, string) (net.Conn, error)
-	Pass      func(http.ResponseWriter, *http.Request) bool
+	ProxyDial      func(context.Context, string, string) (net.Conn, error)
+	Authentication Authentication
 }
 
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if p.Pass != nil && !p.Pass(w, r) {
+	if p.Authentication != nil && !p.Authentication.Auth(w, r) {
 		return
 	}
 	handle := http.NotFound
