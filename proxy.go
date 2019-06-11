@@ -23,7 +23,7 @@ func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-	for k, _ := range resp.Header {
+	for k := range resp.Header {
 		w.Header().Set(k, resp.Header.Get(k))
 	}
 	w.WriteHeader(resp.StatusCode)
