@@ -1,3 +1,3 @@
 module github.com/wzshiming/httpproxy
 
-go 1.12
+go 1.13
