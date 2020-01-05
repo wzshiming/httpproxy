@@ -10,6 +10,39 @@ import (
 	"testing"
 )
 
+func TestHTTPS(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "check", r.RequestURI)
+	}))
+	defer target.Close()
+	proxy := httptest.NewTLSServer(&ProxyHandler{})
+	defer proxy.Close()
+
+	cli := &http.Client{
+		Transport: &http.Transport{
+			Proxy: func(*http.Request) (*url.URL, error) {
+				return url.Parse(proxy.URL)
+			},
+			TLSClientConfig: proxy.Client().Transport.(*http.Transport).TLSClientConfig,
+		},
+	}
+
+	resp, err := cli.Get(target.URL + "/https")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	if !strings.HasSuffix(string(body), "/https") {
+		t.Fatal(string(body))
+	}
+}
+
 func TestConnect(t *testing.T) {
 
 	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,6 +59,44 @@ func TestConnect(t *testing.T) {
 	cli := &http.Client{
 		Transport: &http.Transport{
 			DialContext: dialer.DialContext,
+		},
+	}
+
+	resp, err := cli.Get(target.URL + "/connect")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	if !strings.HasSuffix(string(body), "/connect") {
+		t.Fatal(string(body))
+	}
+}
+
+func TestConnectHTTPS(t *testing.T) {
+
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "check", r.RequestURI)
+	}))
+	defer target.Close()
+	proxy := httptest.NewTLSServer(&ProxyHandler{})
+	defer proxy.Close()
+	dialer, err := NewDialer(proxy.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dialer.TLSClientConfig = proxy.Client().Transport.(*http.Transport).TLSClientConfig
+	dialer.TLSClientConfig.ServerName = "127.0.0.1"
+
+	cli := &http.Client{
+		Transport: &http.Transport{
+			Dial: dialer.Dial,
 		},
 	}
 
@@ -72,6 +143,44 @@ func TestProxy(t *testing.T) {
 	resp.Body.Close()
 
 	if !strings.HasSuffix(string(body), "/proxy") {
+		t.Fatal(string(body))
+	}
+}
+
+func TestConnectAuth(t *testing.T) {
+
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "check", r.RequestURI)
+	}))
+	defer target.Close()
+	proxy := httptest.NewServer(&ProxyHandler{Authentication: BasicAuth("username", "password")})
+	defer proxy.Close()
+
+	u, _ := url.Parse(proxy.URL)
+	u.User = url.UserPassword("username", "password")
+	dialer, err := NewDialer(u.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli := &http.Client{
+		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
+		},
+	}
+
+	resp, err := cli.Get(target.URL + "/connect")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	if !strings.HasSuffix(string(body), "/connect") {
 		t.Fatal(string(body))
 	}
 }
