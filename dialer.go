@@ -98,7 +98,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 		Header: http.Header{},
 	}
 	if d.userinfo != nil {
-		req.Header.Set("Proxy-Authorization", "Basic "+d.userinfo.String())
+		req.Header.Set("Proxy-Authorization", basicAuth(d.userinfo))
 	}
 
 	err = req.Write(conn)

@@ -3,6 +3,7 @@ package httpproxy
 import (
 	"encoding/base64"
 	"net/http"
+	"net/url"
 	"strings"
 	"unsafe"
 )
@@ -54,4 +55,14 @@ func parseBasicAuth(auth string) (username, password string, ok bool) {
 		return
 	}
 	return cs[:s], cs[s+1:], true
+}
+
+// basicAuth HTTP Basic Authentication string.
+func basicAuth(u *url.Userinfo) (base string) {
+	const prefix = "Basic "
+
+	s := u.String()
+	base = base64.StdEncoding.EncodeToString(*(*[]byte)(unsafe.Pointer(&s)))
+
+	return prefix + base
 }
