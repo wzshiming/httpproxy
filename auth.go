@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"strings"
+	"unsafe"
 )
 
 // AuthenticationFunc Authentication interface is implemented
@@ -29,10 +30,10 @@ func BasicAuth(username, password string) Authentication {
 // BasicAuthFunc HTTP Basic authentication for Header Proxy-Authorization
 func BasicAuthFunc(f func(username, password string) bool) Authentication {
 	return AuthenticationFunc(func(w http.ResponseWriter, r *http.Request) bool {
-		if u, p, _ := parseBasicAuth(r.Header.Get("Proxy-Authorization")); f(u, p) {
+		if u, p, ok := parseBasicAuth(r.Header.Get("Proxy-Authorization")); ok && f(u, p) {
 			return true
 		}
-		http.Error(w, "Unauthorized", 407)
+		http.Error(w, http.StatusText(http.StatusProxyAuthRequired), http.StatusProxyAuthRequired)
 		return false
 	})
 }
@@ -47,7 +48,7 @@ func parseBasicAuth(auth string) (username, password string, ok bool) {
 	if err != nil {
 		return
 	}
-	cs := string(c)
+	cs := *(*string)(unsafe.Pointer(&c))
 	s := strings.IndexByte(cs, ':')
 	if s < 0 {
 		return

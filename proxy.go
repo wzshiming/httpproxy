@@ -6,31 +6,38 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 )
+
+func (p *ProxyHandler) init() {
+	if p.ProxyDial == nil {
+		var dialer net.Dialer
+		p.ProxyDial = dialer.DialContext
+	}
+	if p.Client == nil {
+		p.Client = &http.Client{
+			Transport: &http.Transport{
+				DialContext: p.ProxyDial,
+			},
+		}
+	}
+	if p.NotFound == nil {
+		p.NotFound = http.HandlerFunc(http.NotFound)
+	}
+}
 
 func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 	r.RequestURI = ""
 
-	proxyDial := p.ProxyDial
-	if proxyDial == nil {
-		var dialer net.Dialer
-		proxyDial = dialer.DialContext
-	}
-
-	cli := http.Client{
-		Transport: &http.Transport{
-			DialContext: proxyDial,
-		},
-	}
-
-	resp, err := cli.Do(r)
+	resp, err := p.Client.Do(r)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
-	for k := range resp.Header {
-		w.Header().Set(k, resp.Header.Get(k))
+	header := w.Header()
+	for k, v := range resp.Header {
+		header[k] = v
 	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
@@ -38,56 +45,65 @@ func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
+
 	hijacker, ok := w.(http.Hijacker)
 	if !ok {
-		http.Error(w, "hijack not allowed", 500)
+		http.Error(w, "hijack not allowed", http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 	clientConn, _, err := hijacker.Hijack()
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	proxyDial := p.ProxyDial
-	if proxyDial == nil {
-		var dialer net.Dialer
-		proxyDial = dialer.DialContext
-	}
-
-	targetConn, err := proxyDial(r.Context(), "tcp", r.URL.Host)
+	targetConn, err := p.ProxyDial(r.Context(), "tcp", r.URL.Host)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("net.Dial(%q) failed: %v", r.URL.Host, err), 500)
+		http.Error(w, fmt.Sprintf("dial(%q) failed: %v", r.URL.Host, err), http.StatusInternalServerError)
 		return
 	}
 
+	closeConn := func() {
+		clientConn.Close()
+		targetConn.Close()
+	}
+	var once sync.Once
 	go func() {
-		defer clientConn.Close()
-		io.Copy(targetConn, clientConn)
+		var buf [32 * 1024]byte
+		io.CopyBuffer(targetConn, clientConn, buf[:])
+		once.Do(closeConn)
 	}()
 	go func() {
-		defer targetConn.Close()
-		io.Copy(clientConn, targetConn)
+		var buf [32 * 1024]byte
+		io.CopyBuffer(clientConn, targetConn, buf[:])
+		once.Do(closeConn)
 	}()
 	return
 }
 
 // ProxyHandler proxy handler
 type ProxyHandler struct {
+	once           sync.Once
+	Client         *http.Client
 	ProxyDial      func(context.Context, string, string) (net.Conn, error)
 	Authentication Authentication
+	NotFound       http.Handler
 }
 
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if p.Authentication != nil && !p.Authentication.Auth(w, r) {
 		return
 	}
-	handle := http.NotFound
-	if r.Method == "CONNECT" {
-		handle = p.proxyConnect
-	} else if r.URL.Host != "" {
-		handle = p.proxyOther
+	p.once.Do(p.init)
+
+	switch {
+	case r.Method == "CONNECT":
+		p.proxyConnect(w, r)
+	case r.URL.Host != "":
+		p.proxyOther(w, r)
+	default:
+		p.NotFound.ServeHTTP(w, r)
 	}
-	handle(w, r)
 }

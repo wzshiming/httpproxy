@@ -113,7 +113,7 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 		return nil, err
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		conn.Close()
 		return nil, fmt.Errorf("failed proxying %d: %s", resp.StatusCode, resp.Status)
 	}
