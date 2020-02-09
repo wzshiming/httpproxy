@@ -34,6 +34,7 @@ func BasicAuthFunc(f func(username, password string) bool) Authentication {
 		if u, p, ok := parseBasicAuth(r.Header.Get("Proxy-Authorization")); ok && f(u, p) {
 			return true
 		}
+		w.Header().Set("Proxy-Authenticate", "Basic")
 		http.Error(w, http.StatusText(http.StatusProxyAuthRequired), http.StatusProxyAuthRequired)
 		return false
 	})
