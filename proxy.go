@@ -97,15 +97,17 @@ type ProxyHandler struct {
 }
 
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if p.Authentication != nil && !p.Authentication.Auth(w, r) {
-		return
-	}
 	p.once.Do(p.init)
-
 	switch {
 	case r.Method == "CONNECT":
+		if p.Authentication != nil && !p.Authentication.Auth(w, r) {
+			return
+		}
 		p.proxyConnect(w, r)
 	case r.URL.Host != "":
+		if p.Authentication != nil && !p.Authentication.Auth(w, r) {
+			return
+		}
 		p.proxyOther(w, r)
 	default:
 		p.NotFound.ServeHTTP(w, r)
