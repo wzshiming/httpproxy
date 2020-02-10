@@ -45,23 +45,25 @@ func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
+	var clientConn io.ReadWriteCloser
 
-	hijacker, ok := w.(http.Hijacker)
-	if !ok {
-		http.Error(w, "hijack not allowed", http.StatusInternalServerError)
+	switch t := w.(type) {
+	default:
+		http.Error(w, "not support", http.StatusInternalServerError)
 		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	clientConn, _, err := hijacker.Hijack()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	case http.Hijacker:
+		w.WriteHeader(http.StatusOK)
+		conn, _, err := t.Hijack()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		clientConn = conn
 	}
 
 	targetConn, err := p.ProxyDial(r.Context(), "tcp", r.URL.Host)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("dial(%q) failed: %v", r.URL.Host, err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("dial %q failed: %v", r.URL.Host, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -75,11 +77,10 @@ func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
 		io.CopyBuffer(targetConn, clientConn, buf[:])
 		once.Do(closeConn)
 	}()
-	go func() {
-		var buf [32 * 1024]byte
-		io.CopyBuffer(clientConn, targetConn, buf[:])
-		once.Do(closeConn)
-	}()
+
+	var buf [32 * 1024]byte
+	io.CopyBuffer(clientConn, targetConn, buf[:])
+	once.Do(closeConn)
 	return
 }
 
