@@ -8,6 +8,12 @@ import (
 	"unsafe"
 )
 
+const (
+	BasicAuthName         = "Basic"
+	ProxyAuthorizationKey = "Proxy-Authorization"
+	ProxyAuthenticateKey  = "Proxy-Authenticate"
+)
+
 // AuthenticationFunc Authentication interface is implemented
 type AuthenticationFunc func(http.ResponseWriter, *http.Request) bool
 
@@ -31,10 +37,10 @@ func BasicAuth(username, password string) Authentication {
 // BasicAuthFunc HTTP Basic authentication for Header Proxy-Authorization
 func BasicAuthFunc(f func(username, password string) bool) Authentication {
 	return AuthenticationFunc(func(w http.ResponseWriter, r *http.Request) bool {
-		if u, p, ok := parseBasicAuth(r.Header.Get("Proxy-Authorization")); ok && f(u, p) {
+		if u, p, ok := parseBasicAuth(r.Header.Get(ProxyAuthorizationKey)); ok && f(u, p) {
 			return true
 		}
-		w.Header().Set("Proxy-Authenticate", "Basic")
+		w.Header().Set(ProxyAuthenticateKey, BasicAuthName)
 		http.Error(w, http.StatusText(http.StatusProxyAuthRequired), http.StatusProxyAuthRequired)
 		return false
 	})
@@ -42,7 +48,7 @@ func BasicAuthFunc(f func(username, password string) bool) Authentication {
 
 // parseBasicAuth parses an HTTP Basic Authentication string.
 func parseBasicAuth(auth string) (username, password string, ok bool) {
-	const prefix = "Basic "
+	const prefix = BasicAuthName + " "
 	if !strings.HasPrefix(auth, prefix) {
 		return
 	}
@@ -60,7 +66,7 @@ func parseBasicAuth(auth string) (username, password string, ok bool) {
 
 // basicAuth HTTP Basic Authentication string.
 func basicAuth(u *url.Userinfo) (base string) {
-	const prefix = "Basic "
+	const prefix = BasicAuthName + " "
 
 	s := u.String()
 	base = base64.StdEncoding.EncodeToString(*(*[]byte)(unsafe.Pointer(&s)))
