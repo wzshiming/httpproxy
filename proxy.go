@@ -59,6 +59,9 @@ func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		clientConn = conn
+	case http.Flusher:
+		t.Flush()
+		clientConn = &flushWriter{w, r.Body}
 	}
 
 	targetConn, err := p.ProxyDial(r.Context(), "tcp", r.URL.Host)
@@ -107,4 +110,15 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		p.NotFound.ServeHTTP(w, r)
 	}
+}
+
+type flushWriter struct {
+	w io.Writer
+	io.ReadCloser
+}
+
+func (fw flushWriter) Write(p []byte) (n int, err error) {
+	n, err = fw.w.Write(p)
+	fw.w.(http.Flusher).Flush()
+	return
 }
