@@ -45,6 +45,8 @@ func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+var HTTP200 = []byte("HTTP/1.1 200 Connection Established\r\n\r\n")
+
 func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
 	var clientConn io.ReadWriteCloser
 
@@ -53,12 +55,12 @@ func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not support", http.StatusInternalServerError)
 		return
 	case http.Hijacker:
-		w.WriteHeader(http.StatusOK)
 		conn, _, err := t.Hijack()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		conn.Write(HTTP200)
 		clientConn = conn
 	case http.Flusher:
 		t.Flush()
