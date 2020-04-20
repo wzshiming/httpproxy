@@ -27,6 +27,7 @@ func (p *ProxyHandler) init() {
 }
 
 func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
+	r = r.Clone(r.Context())
 	r.RequestURI = ""
 
 	resp, err := p.Client.Do(r)
