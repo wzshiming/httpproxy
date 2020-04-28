@@ -1,7 +1,23 @@
 language: go
-go:
-  - "1.10"
-  - "1.11"
-  - "1.12"
-  - "1.13"
-  - tip
+sudo: false
+notifications:
+  email: false
+jobs:
+  include:
+    - go: 1.14.x
+      stage: deploy
+      go_import_path: github.com/wzshiming/httpproxy
+      install: skip
+      script: skip
+      before_deploy:
+        - BASENAME=httpproxy bash -c "$(curl -fsSL https://github.com/wzshiming/my-shell/raw/master/build_all.bash)"
+      deploy:
+        provider: releases
+        api_key: $CI_TOKEN
+        file_glob: true
+        file: release/*
+        skip_cleanup: true
+        on:
+          repo: wzshiming/httpproxy
+          branch: master
+          tags: true
