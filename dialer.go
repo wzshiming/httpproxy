@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // NewDialer is create a new HTTP CONNECT connection
@@ -55,6 +56,8 @@ type Dialer struct {
 	// If non-nil, HTTP/2 support may not be enabled by default.
 	TLSClientConfig *tls.Config
 
+	ProxyHeader http.Header
+
 	proxy    string
 	userinfo *url.Userinfo
 }
@@ -77,7 +80,7 @@ func (d *Dialer) proxyDial(ctx context.Context, network string, address string) 
 	}
 
 	conn := tls.Client(rawConn, config)
-
+	err = conn.Handshake()
 	if err != nil {
 		rawConn.Close()
 		return nil, err
@@ -91,23 +94,58 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	if err != nil {
 		return nil, err
 	}
-	req := &http.Request{
+
+	hdr := d.ProxyHeader
+	if hdr == nil {
+		hdr = http.Header{}
+	}
+	if d.userinfo != nil {
+		hdr = hdr.Clone()
+		hdr.Set(ProxyAuthorizationKey, basicAuth(d.userinfo))
+	}
+	connectReq := &http.Request{
 		Method: "CONNECT",
 		URL:    &url.URL{Opaque: address},
 		Host:   address,
-		Header: http.Header{},
-	}
-	if d.userinfo != nil {
-		req.Header.Set(ProxyAuthorizationKey, basicAuth(d.userinfo))
+		Header: hdr,
 	}
 
-	err = req.Write(conn)
-	if err != nil {
-		return nil, err
+	// If there's no done channel (no deadline or cancellation
+	// from the caller possible), at least set some (long)
+	// timeout here. This will make sure we don't block forever
+	// and leak a goroutine if the connection stops replying
+	// after the TCP connect.
+	connectCtx := ctx
+	if ctx.Done() == nil {
+		newCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+		defer cancel()
+		connectCtx = newCtx
 	}
 
-	br := bufio.NewReader(conn)
-	resp, err := http.ReadResponse(br, req)
+	didReadResponse := make(chan struct{}) // closed after CONNECT write+read is done or fails
+	var (
+		resp *http.Response
+	)
+	// Write the CONNECT request & read the response.
+	go func() {
+		defer close(didReadResponse)
+		err = connectReq.Write(conn)
+		if err != nil {
+			return
+		}
+		// Okay to use and discard buffered reader here, because
+		// TLS server will not speak until spoken to.
+		br := bufio.NewReader(conn)
+		resp, err = http.ReadResponse(br, connectReq)
+	}()
+	select {
+	case <-connectCtx.Done():
+		conn.Close()
+		<-didReadResponse
+		return nil, connectCtx.Err()
+	case <-didReadResponse:
+		// resp or err now set
+	}
 	if err != nil {
 		conn.Close()
 		return nil, err
