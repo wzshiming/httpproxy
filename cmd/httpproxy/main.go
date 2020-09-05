@@ -2,8 +2,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 	"net/http"
+	"os"
 
 	"github.com/wzshiming/httpproxy"
 )
@@ -16,16 +17,19 @@ func init() {
 	flag.StringVar(&address, "a", ":8080", "listen on the address")
 	flag.StringVar(&username, "u", "", "username")
 	flag.StringVar(&password, "p", "", "password")
+	flag.Parse()
 }
 
 func main() {
-	flag.Parse()
-	ph := &httpproxy.ProxyHandler{}
+	logger := log.New(os.Stderr, "[http proxy] ", log.LstdFlags)
+	ph := &httpproxy.ProxyHandler{
+		Logger: logger,
+	}
 	if username != "" {
 		ph.Authentication = httpproxy.BasicAuth(username, password)
 	}
 	err := http.ListenAndServe(address, ph)
 	if err != nil {
-		fmt.Println(err)
+		logger.Println(err)
 	}
 }

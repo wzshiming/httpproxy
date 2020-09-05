@@ -19,27 +19,30 @@ func NewDialer(addr string) (*Dialer, error) {
 	if err != nil {
 		return nil, err
 	}
-	d.userinfo = proxy.User
+	d.Userinfo = proxy.User
 	switch proxy.Scheme {
 	default:
 		return nil, fmt.Errorf("unsupported protocol '%s'", proxy.Scheme)
 	case "https":
+		hostname := proxy.Hostname()
+		host := proxy.Host
 		port := proxy.Port()
 		if port == "" {
 			port = "443"
+			host = net.JoinHostPort(hostname, port)
 		}
-		hostname := proxy.Hostname()
-		d.proxy = hostname + ":" + port
+		d.Proxy = host
 		d.TLSClientConfig = &tls.Config{
 			ServerName: hostname,
 		}
 	case "http":
+		host := proxy.Host
 		port := proxy.Port()
 		if port == "" {
-			port = "80"
+			port = "443"
+			host = net.JoinHostPort(proxy.Hostname(), port)
 		}
-		hostname := proxy.Hostname()
-		d.proxy = hostname + ":" + port
+		d.Proxy = host
 	}
 	return d, nil
 }
@@ -56,10 +59,15 @@ type Dialer struct {
 	// If non-nil, HTTP/2 support may not be enabled by default.
 	TLSClientConfig *tls.Config
 
+	// ProxyHeader optionally specifies headers to send to
+	// proxies during CONNECT requests.
 	ProxyHeader http.Header
 
-	proxy    string
-	userinfo *url.Userinfo
+	// Proxy proxy server address
+	Proxy string
+
+	// Userinfo use userinfo authentication if not empty
+	Userinfo *url.Userinfo
 }
 
 func (d *Dialer) proxyDial(ctx context.Context, network string, address string) (net.Conn, error) {
@@ -90,7 +98,7 @@ func (d *Dialer) proxyDial(ctx context.Context, network string, address string) 
 
 // DialContext connects to the provided address on the provided network.
 func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	conn, err := d.proxyDial(ctx, network, d.proxy)
+	conn, err := d.proxyDial(ctx, network, d.Proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -99,12 +107,12 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	if hdr == nil {
 		hdr = http.Header{}
 	}
-	if d.userinfo != nil {
+	if d.Userinfo != nil {
 		hdr = hdr.Clone()
-		hdr.Set(ProxyAuthorizationKey, basicAuth(d.userinfo))
+		hdr.Set(ProxyAuthorizationKey, basicAuth(d.Userinfo))
 	}
 	connectReq := &http.Request{
-		Method: "CONNECT",
+		Method: http.MethodConnect,
 		URL:    &url.URL{Opaque: address},
 		Host:   address,
 		Header: hdr,
