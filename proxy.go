@@ -71,47 +71,36 @@ func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-var HTTP200 = []byte("HTTP/1.1 200 Connection Established\r\n\r\n")
-
 func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
-	var clientConn io.ReadWriteCloser
-
-	switch t := w.(type) {
-	default:
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
 		e := "not support"
 		if p.Logger != nil {
 			p.Logger.Println(e)
 		}
 		http.Error(w, e, http.StatusInternalServerError)
 		return
-	case http.Hijacker:
-		conn, _, err := t.Hijack()
-		if err != nil {
-			e := err.Error()
-			if p.Logger != nil {
-				p.Logger.Println(e)
-			}
-			http.Error(w, e, http.StatusInternalServerError)
-			return
-		}
-		_, err = conn.Write(HTTP200)
-		if err != nil {
-			e := err.Error()
-			if p.Logger != nil {
-				p.Logger.Println(e)
-			}
-			http.Error(w, e, http.StatusInternalServerError)
-			return
-		}
-		clientConn = conn
-	case http.Flusher:
-		t.Flush()
-		clientConn = &flushWriter{w, r.Body}
 	}
 
 	targetConn, err := p.proxyDial(r.Context(), "tcp", r.URL.Host)
 	if err != nil {
 		e := fmt.Sprintf("dial %q failed: %v", r.URL.Host, err)
+		if p.Logger != nil {
+			p.Logger.Println(e)
+		}
+		http.Error(w, e, http.StatusInternalServerError)
+		return
+	}
+
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+
+	clientConn, _, err := hijacker.Hijack()
+	if err != nil {
+		e := err.Error()
 		if p.Logger != nil {
 			p.Logger.Println(e)
 		}
