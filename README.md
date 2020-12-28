@@ -8,6 +8,11 @@ HTTP proxy handler and dialer
 [![GitHub license](https://img.shields.io/github/license/wzshiming/httpproxy.svg)](https://github.com/wzshiming/httpproxy/blob/master/LICENSE)
 [![gocover.io](https://gocover.io/_badge/github.com/wzshiming/httpproxy)](https://gocover.io/github.com/wzshiming/httpproxy)
 
+The following is the implementation of other proxy protocols
+
+- [Socks4](https://github.com/wzshiming/socks4)
+- [Socks5](https://github.com/wzshiming/socks5)
+
 ## Usage
 
 [API Documentation](https://godoc.org/github.com/wzshiming/httpproxy)
