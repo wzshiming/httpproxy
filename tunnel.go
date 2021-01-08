@@ -5,17 +5,17 @@ import (
 	"io"
 )
 
-func tunnel(ctx context.Context, c1, c2 io.ReadWriteCloser) error {
+
+// tunnel create tunnels for two io.ReadWriteCloser
+func tunnel(ctx context.Context, c1, c2 io.ReadWriteCloser, buf1, buf2 []byte) error {
 	ctx, cancel := context.WithCancel(ctx)
 	var errs tunnelErr
 	go func() {
-		var buf [32 * 1024]byte
-		_, errs[0] = io.CopyBuffer(c1, c2, buf[:])
+		_, errs[0] = io.CopyBuffer(c1, c2, buf1)
 		cancel()
 	}()
 	go func() {
-		var buf [32 * 1024]byte
-		_, errs[1] = io.CopyBuffer(c2, c1, buf[:])
+		_, errs[1] = io.CopyBuffer(c2, c1, buf2)
 		cancel()
 	}()
 	<-ctx.Done()
@@ -37,4 +37,11 @@ func (t tunnelErr) FirstError() error {
 		}
 	}
 	return nil
+}
+
+// BytesPool is an interface for getting and returning temporary
+// bytes for use by io.CopyBuffer.
+type BytesPool interface {
+	Get() []byte
+	Put([]byte)
 }

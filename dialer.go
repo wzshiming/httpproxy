@@ -13,8 +13,9 @@ import (
 
 // NewDialer is create a new HTTP CONNECT connection
 func NewDialer(addr string) (*Dialer, error) {
-	d := &Dialer{}
-
+	d := &Dialer{
+		Timeout: time.Minute,
+	}
 	proxy, err := url.Parse(addr)
 	if err != nil {
 		return nil, err
@@ -68,6 +69,10 @@ type Dialer struct {
 
 	// Userinfo use userinfo authentication if not empty
 	Userinfo *url.Userinfo
+
+	// Timeout is the maximum amount of time a dial will wait for
+	// a connect to complete. The default is no timeout
+	Timeout time.Duration
 }
 
 func (d *Dialer) proxyDial(ctx context.Context, network string, address string) (net.Conn, error) {
@@ -124,8 +129,8 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	// and leak a goroutine if the connection stops replying
 	// after the TCP connect.
 	connectCtx := ctx
-	if ctx.Done() == nil {
-		newCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	if d.Timeout != 0 && ctx.Done() == nil {
+		newCtx, cancel := context.WithTimeout(ctx, d.Timeout)
 		defer cancel()
 		connectCtx = newCtx
 	}

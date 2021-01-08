@@ -22,6 +22,8 @@ type ProxyHandler struct {
 	NotFound http.Handler
 	// Logger error log
 	Logger *log.Logger
+	// BytesPool getting and returning temporary bytes for use by io.CopyBuffer
+	BytesPool BytesPool
 }
 
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +110,19 @@ func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tunnel(r.Context(), targetConn, clientConn)
+	var buf1, buf2 []byte
+	if p.BytesPool != nil {
+		buf1 = p.BytesPool.Get()
+		buf2 = p.BytesPool.Get()
+		defer func() {
+			p.BytesPool.Put(buf1)
+			p.BytesPool.Put(buf2)
+		}()
+	} else {
+		buf1 = make([]byte, 32*1024)
+		buf2 = make([]byte, 32*1024)
+	}
+	err = tunnel(r.Context(), targetConn, clientConn, buf1, buf2)
 	if err != nil && p.Logger != nil {
 		p.Logger.Println(err)
 	}
@@ -133,15 +147,4 @@ func (p *ProxyHandler) proxyDial(ctx context.Context, network, address string) (
 		proxyDial = dialer.DialContext
 	}
 	return proxyDial(ctx, network, address)
-}
-
-type flushWriter struct {
-	w io.Writer
-	io.ReadCloser
-}
-
-func (fw flushWriter) Write(p []byte) (n int, err error) {
-	n, err = fw.w.Write(p)
-	fw.w.(http.Flusher).Flush()
-	return
 }

@@ -12,6 +12,7 @@ The following is the implementation of other proxy protocols
 
 - [Socks4](https://github.com/wzshiming/socks4)
 - [Socks5](https://github.com/wzshiming/socks5)
+- [Shadow Socks](https://github.com/wzshiming/shadowsocks)
 
 ## Usage
 
