@@ -8,6 +8,8 @@ HTTP proxy handler and dialer
 [![GitHub license](https://img.shields.io/github/license/wzshiming/httpproxy.svg)](https://github.com/wzshiming/httpproxy/blob/master/LICENSE)
 [![gocover.io](https://gocover.io/_badge/github.com/wzshiming/httpproxy)](https://gocover.io/github.com/wzshiming/httpproxy)
 
+This project is to add protocol support for the [Bridge](https://github.com/wzshiming/bridge), or it can be used alone
+
 The following is the implementation of other proxy protocols
 
 - [Socks4](https://github.com/wzshiming/socks4)
