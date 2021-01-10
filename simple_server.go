@@ -6,6 +6,9 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 // SimpleServer is a simplified server, which can be configured as easily as client.
@@ -34,7 +37,7 @@ func NewSimpleServer(addr string) (*SimpleServer, error) {
 	host := u.Host
 	port := u.Port()
 	if port == "" {
-		port = "8080"
+		port = "80"
 		hostname := u.Hostname()
 		host = net.JoinHostPort(hostname, port)
 	}
@@ -43,7 +46,7 @@ func NewSimpleServer(addr string) (*SimpleServer, error) {
 		s.Password, _ = u.User.Password()
 		s.Authentication = BasicAuth(s.Username, s.Password)
 	}
-
+	s.Server.Handler = h2c.NewHandler(&s.ProxyHandler, &http2.Server{})
 	s.Address = host
 	s.Network = "tcp"
 	return s, nil
@@ -58,7 +61,6 @@ func (s *SimpleServer) Run(ctx context.Context) error {
 	}
 	s.Listener = listener
 	s.Address = listener.Addr().String()
-	s.Server.Handler = &s.ProxyHandler
 	return s.Server.Serve(listener)
 }
 
@@ -71,7 +73,6 @@ func (s *SimpleServer) Start(ctx context.Context) error {
 	}
 	s.Listener = listener
 	s.Address = listener.Addr().String()
-	s.Server.Handler = &s.ProxyHandler
 	go s.Server.Serve(listener)
 	return nil
 }

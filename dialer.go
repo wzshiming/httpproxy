@@ -40,7 +40,7 @@ func NewDialer(addr string) (*Dialer, error) {
 		host := proxy.Host
 		port := proxy.Port()
 		if port == "" {
-			port = "443"
+			port = "80"
 			host = net.JoinHostPort(proxy.Hostname(), port)
 		}
 		d.Proxy = host
