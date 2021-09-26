@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 )
@@ -21,9 +20,13 @@ type ProxyHandler struct {
 	// NotFound Not proxy requests
 	NotFound http.Handler
 	// Logger error log
-	Logger *log.Logger
+	Logger Logger
 	// BytesPool getting and returning temporary bytes for use by io.CopyBuffer
 	BytesPool BytesPool
+}
+
+type Logger interface {
+	Println(v ...interface{})
 }
 
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
