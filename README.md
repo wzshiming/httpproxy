@@ -2,7 +2,7 @@
 
 HTTP proxy handler and dialer
 
-[![Build Status](https://travis-ci.org/wzshiming/httpproxy.svg?branch=master)](https://travis-ci.org/wzshiming/httpproxy)
+[![Build](https://github.com/wzshiming/httpproxy/actions/workflows/go-cross-build.yml/badge.svg)](https://github.com/wzshiming/httpproxy/actions/workflows/go-cross-build.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/wzshiming/httpproxy)](https://goreportcard.com/report/github.com/wzshiming/httpproxy)
 [![GoDoc](https://godoc.org/github.com/wzshiming/httpproxy?status.svg)](https://godoc.org/github.com/wzshiming/httpproxy)
 [![GitHub license](https://img.shields.io/github/license/wzshiming/httpproxy.svg)](https://github.com/wzshiming/httpproxy/blob/master/LICENSE)
@@ -15,6 +15,7 @@ The following is the implementation of other proxy protocols
 - [Socks4](https://github.com/wzshiming/socks4)
 - [Socks5](https://github.com/wzshiming/socks5)
 - [Shadow Socks](https://github.com/wzshiming/shadowsocks)
+- [SSH Proxy](https://github.com/wzshiming/sshproxy)
 
 ## Usage
 
@@ -24,4 +25,4 @@ The following is the implementation of other proxy protocols
 
 ## License
 
-Pouch is licensed under the MIT License. See [LICENSE](https://github.com/wzshiming/httpproxy/blob/master/LICENSE) for the full license text.
+Licensed under the MIT License. See [LICENSE](https://github.com/wzshiming/httpproxy/blob/master/LICENSE) for the full license text.
