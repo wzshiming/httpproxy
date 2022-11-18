@@ -52,25 +52,29 @@ func NewSimpleServer(addr string) (*SimpleServer, error) {
 // Run the server
 func (s *SimpleServer) Run(ctx context.Context) error {
 	var listenConfig net.ListenConfig
-	listener, err := listenConfig.Listen(ctx, s.Network, s.Address)
-	if err != nil {
-		return err
+	if s.Listener == nil {
+		listener, err := listenConfig.Listen(ctx, s.Network, s.Address)
+		if err != nil {
+			return err
+		}
+		s.Listener = NewListenerCompatibilityReadDeadline(listener)
 	}
-	s.Listener = listener
-	s.Address = listener.Addr().String()
-	return s.Server.Serve(listener)
+	s.Address = s.Listener.Addr().String()
+	return s.Server.Serve(s.Listener)
 }
 
 // Start the server
 func (s *SimpleServer) Start(ctx context.Context) error {
 	var listenConfig net.ListenConfig
-	listener, err := listenConfig.Listen(ctx, s.Network, s.Address)
-	if err != nil {
-		return err
+	if s.Listener == nil {
+		listener, err := listenConfig.Listen(ctx, s.Network, s.Address)
+		if err != nil {
+			return err
+		}
+		s.Listener = NewListenerCompatibilityReadDeadline(listener)
 	}
-	s.Listener = listener
-	s.Address = listener.Addr().String()
-	go s.Server.Serve(listener)
+	s.Address = s.Listener.Addr().String()
+	go s.Server.Serve(s.Listener)
 	return nil
 }
 
