@@ -57,7 +57,7 @@ func (s *SimpleServer) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.Listener = NewListenerCompatibilityReadDeadline(listener)
+		s.Listener = listener
 	}
 	s.Address = s.Listener.Addr().String()
 	return s.Server.Serve(s.Listener)
@@ -71,7 +71,7 @@ func (s *SimpleServer) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		s.Listener = NewListenerCompatibilityReadDeadline(listener)
+		s.Listener = listener
 	}
 	s.Address = s.Listener.Addr().String()
 	go s.Server.Serve(s.Listener)
