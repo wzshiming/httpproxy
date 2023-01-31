@@ -26,7 +26,20 @@ func (w listenerCompatibilityReadDeadline) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return connCompatibilityReadDeadline{c}, nil
+	return NewConnCompatibilityReadDeadline(c), nil
+}
+
+// NewConnCompatibilityReadDeadline this is a wrapper used to be compatible with
+// the net.Conn after wrapping it so that it can be hijacked properly.
+// there is no effect if the content is not manipulated.
+func NewConnCompatibilityReadDeadline(conn net.Conn) net.Conn {
+	if conn == nil {
+		return nil
+	}
+	if conn, ok := conn.(connCompatibilityReadDeadline); ok {
+		return conn
+	}
+	return connCompatibilityReadDeadline{conn}
 }
 
 type connCompatibilityReadDeadline struct {
@@ -35,7 +48,7 @@ type connCompatibilityReadDeadline struct {
 
 func (d connCompatibilityReadDeadline) SetReadDeadline(t time.Time) error {
 	if aLongTimeAgo == t {
-		t = time.Now().Add(time.Second)
+		t = time.Now().Add(1 * time.Second)
 	}
 	return d.Conn.SetReadDeadline(t)
 }

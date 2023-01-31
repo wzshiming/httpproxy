@@ -1,6 +1,7 @@
 package httpproxy
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -96,22 +97,21 @@ func (p *ProxyHandler) proxyConnect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, e, http.StatusInternalServerError)
 		return
 	}
+	defer targetConn.Close()
 
-	if flusher, ok := w.(http.Flusher); ok {
-		flusher.Flush()
-	} else {
-		w.WriteHeader(http.StatusOK)
-	}
+	w.WriteHeader(http.StatusOK)
 
-	clientConn, _, err := hijacker.Hijack()
+	conn, rw, err := hijacker.Hijack()
 	if err != nil {
-		e := err.Error()
+		e := fmt.Sprintf("hijack failed: %v", err)
 		if p.Logger != nil {
 			p.Logger.Println(e)
 		}
 		http.Error(w, e, http.StatusInternalServerError)
 		return
 	}
+
+	clientConn := newBufConn(conn, rw)
 
 	var buf1, buf2 []byte
 	if p.BytesPool != nil {
@@ -150,4 +150,35 @@ func (p *ProxyHandler) proxyDial(ctx context.Context, network, address string) (
 		proxyDial = dialer.DialContext
 	}
 	return proxyDial(ctx, network, address)
+}
+
+func newBufConn(conn net.Conn, rw *bufio.ReadWriter) net.Conn {
+	rw.Flush()
+	if rw.Reader.Buffered() == 0 {
+		// If there's no buffered data to be read,
+		// we can just discard the bufio.ReadWriter.
+		return conn
+	}
+	return &bufConn{conn, rw.Reader}
+}
+
+// bufConn wraps a net.Conn, but reads drain the bufio.Reader first.
+type bufConn struct {
+	net.Conn
+	*bufio.Reader
+}
+
+func (c *bufConn) Read(p []byte) (int, error) {
+	if c.Reader == nil {
+		return c.Conn.Read(p)
+	}
+	n := c.Reader.Buffered()
+	if n == 0 {
+		c.Reader = nil
+		return c.Conn.Read(p)
+	}
+	if n < len(p) {
+		p = p[:n]
+	}
+	return c.Reader.Read(p)
 }

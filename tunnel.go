@@ -5,7 +5,6 @@ import (
 	"io"
 )
 
-
 // tunnel create tunnels for two io.ReadWriteCloser
 func tunnel(ctx context.Context, c1, c2 io.ReadWriteCloser, buf1, buf2 []byte) error {
 	ctx, cancel := context.WithCancel(ctx)
