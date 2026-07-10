@@ -2,7 +2,7 @@
 
 HTTP proxy handler and dialer
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/wzshiming/httpproxy)](https://goreportcard.com/report/github.com/wzshiming/httpproxy)
+[![Build](https://github.com/wzshiming/httpproxy/actions/workflows/go-cross-build.yml/badge.svg)](https://github.com/wzshiming/httpproxy/actions/workflows/go-cross-build.yml)
 [![GoDoc](https://godoc.org/github.com/wzshiming/httpproxy?status.svg)](https://godoc.org/github.com/wzshiming/httpproxy)
 [![GitHub license](https://img.shields.io/github/license/wzshiming/httpproxy.svg)](https://github.com/wzshiming/httpproxy/blob/master/LICENSE)
 
