@@ -47,7 +47,7 @@ type connCompatibilityReadDeadline struct {
 }
 
 func (d connCompatibilityReadDeadline) SetReadDeadline(t time.Time) error {
-	if aLongTimeAgo == t {
+	if t.Equal(aLongTimeAgo) {
 		t = time.Now().Add(1 * time.Second)
 	}
 	return d.Conn.SetReadDeadline(t)
