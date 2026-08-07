@@ -7,6 +7,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/textproto"
+	"strings"
+	"sync"
 )
 
 // ProxyHandler proxy handler
@@ -51,9 +54,37 @@ func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// hopByHopHeaders are consumed by the proxy and must not be forwarded.
+// See RFC 7230, section 6.1.
+var hopByHopHeaders = []string{
+	"Connection",
+	"Proxy-Connection",
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"TE",
+	"Trailer",
+	"Transfer-Encoding",
+	"Upgrade",
+}
+
+func removeHopByHopHeaders(h http.Header) {
+	for _, value := range h.Values("Connection") {
+		for name := range strings.SplitSeq(value, ",") {
+			if name = textproto.TrimString(name); name != "" {
+				h.Del(name)
+			}
+		}
+	}
+	for _, name := range hopByHopHeaders {
+		h.Del(name)
+	}
+}
+
 func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 	r = r.Clone(r.Context())
 	r.RequestURI = ""
+	removeHopByHopHeaders(r.Header)
 
 	resp, err := p.client().Do(r)
 	if err != nil {
@@ -65,6 +96,7 @@ func (p *ProxyHandler) proxyOther(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
+	removeHopByHopHeaders(resp.Header)
 	header := w.Header()
 	for k, v := range resp.Header {
 		header[k] = v
