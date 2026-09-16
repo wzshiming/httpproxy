@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/textproto"
 	"strings"
-	"sync"
 )
 
 // ProxyHandler proxy handler
