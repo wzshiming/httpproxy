@@ -2,7 +2,6 @@ package httpproxy
 
 import (
 	"encoding/base64"
-	"net/http"
 	"net/url"
 	"strings"
 	"unsafe"
@@ -15,41 +14,34 @@ const (
 )
 
 // AuthenticationFunc Authentication interface is implemented
-type AuthenticationFunc func(http.ResponseWriter, *http.Request) bool
+type AuthenticationFunc func(username, password string) bool
 
 // Auth authentication processing
-func (f AuthenticationFunc) Auth(w http.ResponseWriter, r *http.Request) bool {
-	return f(w, r)
+func (f AuthenticationFunc) Auth(username, password string) bool {
+	return f(username, password)
 }
 
 // Authentication proxy authentication
 type Authentication interface {
-	Auth(http.ResponseWriter, *http.Request) bool
+	Auth(username, password string) bool
 }
 
 // BasicAuth HTTP Basic authentication for Header Proxy-Authorization
 func BasicAuth(username, password string) Authentication {
-	return BasicAuthFunc(func(u, p string) bool {
+	return AuthenticationFunc(func(u, p string) bool {
 		return username == u && password == p
 	})
 }
 
 // BasicAuthFunc HTTP Basic authentication for Header Proxy-Authorization
 func BasicAuthFunc(f func(username, password string) bool) Authentication {
-	return AuthenticationFunc(func(w http.ResponseWriter, r *http.Request) bool {
-		if u, p, ok := parseBasicAuth(r.Header.Get(ProxyAuthorizationKey)); ok && f(u, p) {
-			return true
-		}
-		w.Header().Set(ProxyAuthenticateKey, BasicAuthName)
-		http.Error(w, http.StatusText(http.StatusProxyAuthRequired), http.StatusProxyAuthRequired)
-		return false
-	})
+	return AuthenticationFunc(f)
 }
 
 // parseBasicAuth parses an HTTP Basic Authentication string.
 func parseBasicAuth(auth string) (username, password string, ok bool) {
 	const prefix = BasicAuthName + " "
-	if !strings.HasPrefix(auth, prefix) {
+	if len(auth) < len(prefix) || !strings.EqualFold(auth[:len(prefix)], prefix) {
 		return
 	}
 	c, err := base64.StdEncoding.DecodeString(auth[len(prefix):])
