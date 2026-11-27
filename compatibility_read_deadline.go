@@ -1,8 +1,10 @@
 package httpproxy
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -38,11 +40,51 @@ func (w autoListenerCompatibilityReadDeadline) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	switch c.(type) {
-	case *net.TCPConn, *net.UnixConn, *tls.Conn:
+	if !needCompatibilityReadDeadline(c) {
 		return c, nil
 	}
 	return NewConnCompatibilityReadDeadline(c), nil
+}
+
+// needCompatibilityReadDeadline reports whether conn may not survive an
+// interrupted read. A TLS conn forwards the deadline to the conn it is built
+// on, so it is as safe as that conn.
+func needCompatibilityReadDeadline(conn net.Conn) bool {
+	for {
+		switch c := conn.(type) {
+		case *net.TCPConn, *net.UnixConn, *connCompatibilityReadDeadline:
+			return false
+		case *tls.Conn:
+			conn = c.NetConn()
+		default:
+			return true
+		}
+	}
+}
+
+type connContextKey struct{}
+
+// withConnTLS keeps the TLS conn hidden by the compatibility wrapper in ctx,
+// it is used as http.Server.ConnContext.
+func withConnTLS(ctx context.Context, conn net.Conn) context.Context {
+	if c, ok := conn.(*connCompatibilityReadDeadline); ok {
+		if tlsConn, ok := c.Conn.(*tls.Conn); ok {
+			return context.WithValue(ctx, connContextKey{}, tlsConn)
+		}
+	}
+	return ctx
+}
+
+// fillRequestTLS sets r.TLS as net/http does for a TLS conn, which it can
+// not do by itself once the TLS conn is hidden by the compatibility wrapper.
+func fillRequestTLS(r *http.Request) {
+	if r.TLS != nil {
+		return
+	}
+	if tlsConn, ok := r.Context().Value(connContextKey{}).(*tls.Conn); ok {
+		state := tlsConn.ConnectionState()
+		r.TLS = &state
+	}
 }
 
 // NewConnCompatibilityReadDeadline this is a wrapper used to be compatible with

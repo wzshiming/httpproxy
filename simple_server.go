@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 )
 
 // SimpleServer is a simplified server, which can be configured as easily as client.
@@ -17,6 +18,8 @@ type SimpleServer struct {
 	Address  string
 	Username string
 	Password string
+
+	serveOnce sync.Once
 }
 
 // NewSimpleServer creates a new SimpleServer
@@ -60,7 +63,7 @@ func (s *SimpleServer) Run(ctx context.Context) error {
 		s.Listener = listener
 	}
 	s.Address = s.Listener.Addr().String()
-	return s.Server.Serve(autoListenerCompatibilityReadDeadline{s.Listener})
+	return s.Server.Serve(s.serveListener())
 }
 
 // Start the server
@@ -74,8 +77,24 @@ func (s *SimpleServer) Start(ctx context.Context) error {
 		s.Listener = listener
 	}
 	s.Address = s.Listener.Addr().String()
-	go s.Server.Serve(autoListenerCompatibilityReadDeadline{s.Listener})
+	go s.Server.Serve(s.serveListener())
 	return nil
+}
+
+// serveListener returns the listener to serve on, its conns that keep state
+// across reads are made compatible with the hijacking of net/http.
+func (s *SimpleServer) serveListener() net.Listener {
+	s.serveOnce.Do(func() {
+		connContext := s.Server.ConnContext
+		s.Server.ConnContext = func(ctx context.Context, c net.Conn) context.Context {
+			ctx = withConnTLS(ctx, c)
+			if connContext != nil {
+				ctx = connContext(ctx, c)
+			}
+			return ctx
+		}
+	})
+	return autoListenerCompatibilityReadDeadline{s.Listener}
 }
 
 // Close closes the listener

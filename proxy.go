@@ -33,6 +33,7 @@ type Logger interface {
 }
 
 func (p *ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fillRequestTLS(r)
 	switch {
 	case r.Method == http.MethodConnect:
 		if p.Authentication != nil && !p.Authentication.Auth(w, r) {
