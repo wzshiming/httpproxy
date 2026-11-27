@@ -201,11 +201,36 @@ var targets = []*TestServer{
 	h2Server(http.HandlerFunc(echoHandler), tlsConfig2.Clone()),
 }
 
+// proxyServer serves the proxy on a new listener, with TLS if tlsConfig is not nil.
+func proxyServer(s *Server, tlsConfig *tls.Config) *TestServer {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		panic(err)
+	}
+	t := &TestServer{
+		Type:     "http",
+		Listener: l,
+		URL:      fmt.Sprintf("http://%s", l.Addr().String()),
+	}
+	if tlsConfig != nil {
+		t.Type = "https"
+		t.TLS = tlsConfig
+		t.URL = fmt.Sprintf("https://%s", l.Addr().String())
+		l = tls.NewListener(l, tlsConfig)
+	}
+
+	go s.Serve(l)
+
+	return t
+}
+
+func (t *TestServer) Close() {
+	t.Listener.Close()
+}
+
 var proxys = []*TestServer{
-	httpServer(&ProxyHandler{}),
-	httpsServer(&ProxyHandler{}, tlsConfig1.Clone()),
-	h2cServer(&ProxyHandler{}),
-	h2Server(&ProxyHandler{}, tlsConfig1.Clone()),
+	proxyServer(NewServer(), nil),
+	proxyServer(NewServer(), tlsConfig1.Clone()),
 }
 
 type transport struct {
@@ -272,7 +297,7 @@ func TestConnectAuth(t *testing.T) {
 		fmt.Fprint(w, "check", r.RequestURI)
 	}))
 	defer target.Close()
-	proxy := httptest.NewServer(&ProxyHandler{Authentication: BasicAuth("username", "password")})
+	proxy := proxyServer(&Server{Authentication: BasicAuth("username", "password")}, nil)
 	defer proxy.Close()
 
 	u, _ := url.Parse(proxy.URL)
@@ -309,7 +334,7 @@ func TestAuth(t *testing.T) {
 		fmt.Fprint(w, "check", r.RequestURI)
 	}))
 	defer target.Close()
-	var proxy = httptest.NewServer(&ProxyHandler{Authentication: BasicAuth("username", "password")})
+	var proxy = proxyServer(&Server{Authentication: BasicAuth("username", "password")}, nil)
 	defer proxy.Close()
 	purl, err := url.Parse(proxy.URL)
 	if err != nil {
@@ -345,7 +370,7 @@ func TestUnauth(t *testing.T) {
 		fmt.Fprint(w, "check", r.RequestURI)
 	}))
 	defer target.Close()
-	var proxy = httptest.NewServer(&ProxyHandler{Authentication: BasicAuth("username", "password")})
+	var proxy = proxyServer(&Server{Authentication: BasicAuth("username", "password")}, nil)
 	defer proxy.Close()
 	purl, err := url.Parse(proxy.URL)
 	if err != nil {
@@ -392,7 +417,7 @@ func BenchmarkConnect(b *testing.B) {
 		fmt.Fprint(w, "check", r.RequestURI)
 	}))
 	defer target.Close()
-	proxy := httptest.NewServer(&ProxyHandler{})
+	proxy := proxyServer(&Server{}, nil)
 	defer proxy.Close()
 	dialer, err := NewDialer(proxy.URL)
 	if err != nil {
@@ -416,7 +441,7 @@ func BenchmarkProxy(b *testing.B) {
 		fmt.Fprint(w, "check", r.RequestURI)
 	}))
 	defer target.Close()
-	proxy := httptest.NewServer(&ProxyHandler{})
+	proxy := proxyServer(&Server{}, nil)
 	defer proxy.Close()
 	cli := &http.Client{
 		Transport: &http.Transport{

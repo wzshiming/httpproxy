@@ -1,6 +1,6 @@
 # http proxy
 
-HTTP proxy handler and dialer
+HTTP proxy server and dialer
 
 [![Build](https://github.com/wzshiming/httpproxy/actions/workflows/go-cross-build.yml/badge.svg)](https://github.com/wzshiming/httpproxy/actions/workflows/go-cross-build.yml)
 [![GoDoc](https://godoc.org/github.com/wzshiming/httpproxy?status.svg)](https://godoc.org/github.com/wzshiming/httpproxy)
