@@ -1,6 +1,7 @@
 package httpproxy
 
 import (
+	"crypto/tls"
 	"net"
 	"os"
 	"sync"
@@ -22,6 +23,24 @@ func (w listenerCompatibilityReadDeadline) Accept() (net.Conn, error) {
 	c, err := w.Listener.Accept()
 	if err != nil {
 		return nil, err
+	}
+	return NewConnCompatibilityReadDeadline(c), nil
+}
+
+// autoListenerCompatibilityReadDeadline wraps only the accepted conns that may
+// need it, the conns known to survive an interrupted read are returned as is.
+type autoListenerCompatibilityReadDeadline struct {
+	net.Listener
+}
+
+func (w autoListenerCompatibilityReadDeadline) Accept() (net.Conn, error) {
+	c, err := w.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	switch c.(type) {
+	case *net.TCPConn, *net.UnixConn, *tls.Conn:
+		return c, nil
 	}
 	return NewConnCompatibilityReadDeadline(c), nil
 }

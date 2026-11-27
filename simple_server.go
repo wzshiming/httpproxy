@@ -60,7 +60,7 @@ func (s *SimpleServer) Run(ctx context.Context) error {
 		s.Listener = listener
 	}
 	s.Address = s.Listener.Addr().String()
-	return s.Server.Serve(s.Listener)
+	return s.Server.Serve(autoListenerCompatibilityReadDeadline{s.Listener})
 }
 
 // Start the server
@@ -74,7 +74,7 @@ func (s *SimpleServer) Start(ctx context.Context) error {
 		s.Listener = listener
 	}
 	s.Address = s.Listener.Addr().String()
-	go s.Server.Serve(s.Listener)
+	go s.Server.Serve(autoListenerCompatibilityReadDeadline{s.Listener})
 	return nil
 }
 

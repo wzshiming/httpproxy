@@ -60,6 +60,7 @@ func TestNewListenerCompatibilityReadDeadline(t *testing.T) {
 
 // The client stays idle after CONNECT, so the read interrupted by Hijack
 // can not be completed by incoming data.
+// SimpleServer applies the compatibility by itself.
 func TestNewListenerCompatibilityReadDeadlineIdle(t *testing.T) {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "check", r.RequestURI)
@@ -71,7 +72,6 @@ func TestNewListenerCompatibilityReadDeadlineIdle(t *testing.T) {
 		t.Fatal(err)
 	}
 	listener = newHexListener(listener)
-	listener = NewListenerCompatibilityReadDeadline(listener)
 
 	s, err := NewSimpleServer("http://u:p@:0")
 	if err != nil {
@@ -155,4 +155,33 @@ func (h hexConn) Read(p []byte) (n int, err error) {
 
 func (h hexConn) Write(p []byte) (n int, err error) {
 	return h.w.Write(p)
+}
+
+func TestAutoListenerCompatibilityReadDeadline(t *testing.T) {
+	for _, wrapped := range []bool{false, true} {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if wrapped {
+			listener = newHexListener(listener)
+		}
+		listener = autoListenerCompatibilityReadDeadline{listener}
+
+		cli, err := net.Dial("tcp", listener.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		conn, err := listener.Accept()
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, ok := conn.(*connCompatibilityReadDeadline)
+		if ok != wrapped {
+			t.Errorf("wrapped = %v, want %v for %T", ok, wrapped, conn)
+		}
+		conn.Close()
+		cli.Close()
+		listener.Close()
+	}
 }
